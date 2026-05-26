@@ -46,6 +46,13 @@ README.md
 VERCEL_TESTING_SETUP.md
 
 # Backend uploaded artifacts
-server/public/files/
-server/public/photos/
-server/public/winnerPhotoes/
+# server/public/files/
+# server/public/photos/
+# server/public/winnerPhotoes/
+server/public/files/*
+server/public/photos/*
+server/public/winnerPhotoes/*
+
+!server/public/files/.gitkeep
+!server/public/photos/.gitkeep
+!server/public/winnerPhotoes/.gitkeep
