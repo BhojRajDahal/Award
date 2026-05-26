@@ -1,0 +1,34 @@
+
+# Docker Compose - Development Override
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+
+services:
+  backend:
+    # Development: Mount source code for hot reload
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    # Development: Use nodemon for auto-reload
+    command: npm run dev
+    environment:
+      NODE_ENV: development
+
+  frontend:
+    # Development: Mount source code for hot reload
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    # Development: Use Next.js dev server
+    command: pnpm dev
+    environment:
+      NODE_ENV: development
+    ports:
+      - "3000:3000"  # Direct access to Next.js dev server
+
+  db:
+    # Development: Expose port for direct access
+    ports:
+      - "3306:3306"
+

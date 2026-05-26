@@ -1,0 +1,240 @@
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+const sanitizeFilename = (name) =>
+  name
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .slice(0, 120);
+
+const isMimeExtConsistent = (file) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const map = {
+    'image/jpeg': ['.jpg', '.jpeg'],
+    'image/jpg': ['.jpg', '.jpeg'],
+    'image/png': ['.png'],
+    'image/gif': ['.gif'],
+    'image/webp': ['.webp'],
+    'application/pdf': ['.pdf'],
+    'application/msword': ['.doc'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+  };
+  return (map[file.mimetype] || []).includes(ext);
+};
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Create upload directories if they don't exist
+const photosDir = path.join(__dirname, '../../public/photos');
+const filesDir = path.join(__dirname, '../../public/files');
+const winnerPhotoesDir = path.join(__dirname, '../../public/winnerPhotoes');
+
+[photosDir, filesDir, winnerPhotoesDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`[Upload] Created directory: ${dir}`);
+  }
+});
+
+// Configure storage for photos (images)
+const photoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, photosDir);
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename: timestamp_fieldId_originalname
+    const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const name = sanitizeFilename(path.basename(file.originalname, ext));
+    cb(null, `${uniqueSuffix}_${name}${ext}`);
+  }
+});
+
+// Configure storage for PDFs and documents
+const fileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, filesDir);
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename: timestamp_fieldId_originalname
+    const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const name = sanitizeFilename(path.basename(file.originalname, ext));
+    cb(null, `${uniqueSuffix}_${name}${ext}`);
+  }
+});
+
+// Configure storage for winner photos
+const winnerPhotoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, winnerPhotoesDir);
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename: timestamp_random_originalname
+    const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const name = sanitizeFilename(path.basename(file.originalname, ext));
+    cb(null, `${uniqueSuffix}_${name}${ext}`);
+  }
+});
+
+// File filter for photos
+const photoFilter = (req, file, cb) => {
+  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+  if (allowedMimes.includes(file.mimetype) && isMimeExtConsistent(file)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files (JPEG, PNG, GIF, WEBP) are allowed for photos'), false);
+  }
+};
+
+// File filter for documents
+const fileFilter = (req, file, cb) => {
+  const allowedMimes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/jpeg',
+    'image/jpg',
+    'image/png'
+  ];
+  if (allowedMimes.includes(file.mimetype) && isMimeExtConsistent(file)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PDF, DOC, DOCX, JPG, PNG files are allowed'), false);
+  }
+};
+
+// Create upload instances
+export const uploadPhoto = multer({
+  storage: photoStorage,
+  fileFilter: photoFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
+
+export const uploadFile = multer({
+  storage: fileStorage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
+
+// Upload middleware for winner photos
+export const uploadWinnerPhoto = multer({
+  storage: winnerPhotoStorage,
+  fileFilter: photoFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
+
+// Helper function to determine if file is an image
+export const isImageFile = (mimetype) => {
+  return ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'].includes(mimetype);
+};
+
+// Custom storage that routes files to photos or files directory based on file type
+const dynamicStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Route images to photos directory, others to files directory
+    if (isImageFile(file.mimetype)) {
+      cb(null, photosDir);
+    } else {
+      cb(null, filesDir);
+    }
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename: timestamp_random_originalname
+    const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const name = sanitizeFilename(path.basename(file.originalname, ext));
+    cb(null, `${uniqueSuffix}_${name}${ext}`);
+  }
+});
+
+// File filter for all allowed types
+const allFileFilter = (req, file, cb) => {
+  const allowedMimes = [
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+  if (allowedMimes.includes(file.mimetype) && isMimeExtConsistent(file)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only images, PDF, DOC, DOCX are allowed'), false);
+  }
+};
+
+// Maximum total file size allowed per user submission (10MB)
+const MAX_TOTAL_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+
+// Upload middleware that accepts any number of files with dynamic field names
+// Validates that the total size of all files does not exceed 10MB
+export const getUploadMiddleware = () => {
+  const upload = multer({
+    storage: dynamicStorage,
+    fileFilter: allFileFilter,
+    limits: {
+      fileSize: 10 * 1024 * 1024 // 10MB per file (individual file limit)
+    }
+  });
+
+  // Return middleware chain that validates total file size
+  return (req, res, next) => {
+    // First, process files with multer
+    upload.any()(req, res, (err) => {
+      if (err) {
+        // If multer error (e.g., file too large, invalid type), pass it along
+        return next(err);
+      }
+
+      // After multer processes files, check total size
+      const files = req.files || [];
+      
+      if (files.length === 0) {
+        // No files uploaded, proceed
+        return next();
+      }
+
+      // Calculate total size of all files
+      const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+
+      // Check if total size exceeds limit
+      if (totalSize > MAX_TOTAL_FILE_SIZE) {
+        // Delete all uploaded files since they exceed the limit
+        files.forEach(file => {
+          const filePath = path.join(
+            isImageFile(file.mimetype) ? photosDir : filesDir,
+            file.filename
+          );
+          fs.promises
+            .unlink(filePath)
+            .then(() => console.log(`[Upload] Deleted file exceeding total size limit: ${filePath}`))
+            .catch((deleteError) => {
+              // Don't block request lifecycle on cleanup
+              if (deleteError?.code !== 'ENOENT') {
+                console.error(`[Upload] Error deleting file ${filePath}:`, deleteError);
+              }
+            });
+        });
+
+        // Return error
+        return res.status(400).json({
+          msg: `Total file size exceeds the limit. The combined size of all files must not exceed 10MB. Current total: ${(totalSize / (1024 * 1024)).toFixed(2)}MB`
+        });
+      }
+
+      // Total size is within limit, proceed
+      next();
+    });
+  };
+};
+
